@@ -21,6 +21,7 @@
       }
       #myCanvas {
         border: 0px;
+        touch-action: none;
         background-color: #ffffff;
         width: 90%;
         max-width: 360px;
@@ -76,11 +77,15 @@
           this.y = y;
           this.radius = 0.5;
 
+          this.isHovered = false;
           this.isDragged = false;
         }
 
         draw() {
           ctx.fillStyle = "#f5b9b0";
+          if (this.isHovered) {
+            ctx.fillStyle = "#eb978a";
+          }
           ctx.strokeStyle = "#d47263";
           ctx.lineWidth = 0.1 * ppcm;
           ctx.beginPath();
@@ -102,45 +107,82 @@
           ctx.fillText("e", xCon(this.x) * ppcm, yCon(this.y) * ppcm);
         }
 
-        setEvent() {
-          canvas.addEventListener("pointerdown", (evt) => {
-            this.draw();
-            if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
-              this.isDragged = true;
-              let pointerX = convToCanvasX(evt.x);
-              let pointerY = convToCanvasY(evt.y);
-              let delX = 0;
-              let delY = 0;
-              canvas.addEventListener("pointermove", (evt) => {
-                if (this.isDragged == false) {
-                  return;
-                }
+        // setEvent() {
+        //   canvas.addEventListener("pointerdown", (evt) => {
+        //     this.draw();
+        //     if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
+        //       this.isDragged = true;
+        //       let pointerX = convToCanvasX(evt.x);
+        //       let pointerY = convToCanvasY(evt.y);
+        //       let delX = 0;
+        //       let delY = 0;
+        //       canvas.addEventListener("pointermove", (evt) => {
+        //         if (this.isDragged == false) {
+        //           return;
+        //         }
 
-                delX = convToCanvasX(evt.x) - pointerX;
-                delY = convToCanvasY(evt.y) - pointerY;
+        //         delX = convToCanvasX(evt.x) - pointerX;
+        //         delY = convToCanvasY(evt.y) - pointerY;
 
-                this.x = this.x - delX / ppcm;
-                this.y = this.y - delY / ppcm;
+        //         this.x = this.x - delX / ppcm;
+        //         this.y = this.y - delY / ppcm;
 
-                pointerX = convToCanvasX(evt.x);
-                pointerY = convToCanvasY(evt.y);
-              });
+        //         pointerX = convToCanvasX(evt.x);
+        //         pointerY = convToCanvasY(evt.y);
+        //       });
 
-              canvas.addEventListener(
-                "pointerup",
-                () => {
-                  this.isDragged = false;
-                },
-                { once: true }
-              );
-            }
-          });
-        }
+        //       canvas.addEventListener(
+        //         "pointerup",
+        //         () => {
+        //           this.isDragged = false;
+        //         },
+        //         { once: true }
+        //       );
+        //     }
+        //   });
+        // }
       }
 
       // class instanciation
       const electron = new Electron(0, 0);
-      electron.setEvent();
+
+      // electron event
+      let pointerX = undefined;
+      canvas.addEventListener("pointermove", handleMove);
+      canvas.addEventListener("pointerdown", handleDown);
+      function handleMove(evt) {
+        if (
+          ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y)) ||
+          electron.isDragged
+        ) {
+          electron.isHovered = true;
+        } else {
+          electron.isHovered = false;
+        }
+
+        if (electron.isDragged) {
+          if (pointerX != undefined) {
+            delX = convToCanvasX(evt.x) - pointerX;
+            electron.x = electron.x - delX / ppcm;
+          }
+          pointerX = convToCanvasX(evt.x);
+        }
+      }
+      function handleDown(evt) {
+        if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
+          electron.isHovered = true;
+          electron.isDragged = true;
+
+          window.addEventListener(
+            "pointerup",
+            () => {
+              electron.isHovered = false;
+              electron.isDragged = false;
+            },
+            { once: true }
+          );
+        }
+      }
 
       // animation loop
       function animFrame() {
