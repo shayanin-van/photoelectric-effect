@@ -7,7 +7,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css?family=Mitr"
     />
-    <title>Laser Double Slits</title>
+    <title>Photoelectric Effect</title>
     <style>
       body {
         font-family: "Mitr", sans-serif;
@@ -21,52 +21,15 @@
       }
       #myCanvas {
         border: 0px;
-        background-color: #f7fcff;
+        background-color: #ffffff;
         width: 90%;
         max-width: 360px;
-        aspect-ratio: 0.7;
-        margin-bottom: 20px;
+        aspect-ratio: 1;
       }
     </style>
   </head>
   <body>
     <canvas id="myCanvas"></canvas>
-    <div style="display: flex; flex-direction: column; align-items: center">
-      <label for="slitD">ระยะระหว่างช่องสลิต</label>
-      <input
-        type="range"
-        id="slitD"
-        name="slitD"
-        min="0.5"
-        max="4"
-        value="2.5"
-        step="0.1"
-      />
-    </div>
-    <div style="display: flex; flex-direction: column; align-items: center">
-      <label for="freq">ความถี่แสง</label>
-      <input
-        type="range"
-        id="freq"
-        name="freq"
-        min="1.5"
-        max="3"
-        value="1.7"
-        step="0.01"
-      />
-    </div>
-    <div style="display: flex; flex-direction: column; align-items: center">
-      <label for="screenDistance">ระยะระหว่างฉากกับสลิต</label>
-      <input
-        type="range"
-        id="screenDistance"
-        name="screenDistance"
-        min="4.0"
-        max="7.9"
-        value="6.0"
-        step="0.1"
-      />
-    </div>
 
     <script>
       // Get the canvas element
@@ -78,30 +41,12 @@
       const ctx = canvas.getContext("2d");
 
       // sizing
-      const phyWidth = 7; // in cm.
+      const phyWidth = 10; // in cm.
       const phyHeight = 10; // in cm.
       let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
 
       // physics
-      let slitD = document.getElementById("slitD").value; // spacing
-      document.getElementById("slitD").addEventListener("input", () => {
-        slitD = document.getElementById("slitD").value;
-      });
-      const velocity = 0.75; // in cm/s.
-      let freq = document.getElementById("freq").value;
-      let lambda = velocity / freq;
-      document.getElementById("freq").addEventListener("input", () => {
-        freq = document.getElementById("freq").value;
-        lambda = velocity / freq;
-      });
-      let screenDistance = document.getElementById("screenDistance").value;
-      document
-        .getElementById("screenDistance")
-        .addEventListener("input", () => {
-          screenDistance = document.getElementById("screenDistance").value;
-        });
-      const slitA = 0.2; // width
-      const slitYPos = 1.4;
+      const workFunction = 2.3; // approx for sodium
 
       // time
       const startTime = Date.now() / 1000;
@@ -109,12 +54,12 @@
       let currentTime;
       let deltaTime;
 
-      // coordinate convert function
+      // coordinate converting function from physical to canvas space
       function xCon(x) {
-        return x + phyWidth / 2;
+        return -x + 8.5;
       }
       function yCon(y) {
-        return -y + phyHeight;
+        return -y + 5;
       }
 
       // resize event
@@ -123,6 +68,79 @@
         canvas.height = canvas.clientHeight;
         ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
       });
+
+      // electron class
+      class Electron {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.radius = 0.5;
+
+          this.isDragged = false;
+        }
+
+        draw() {
+          ctx.fillStyle = "#f5b9b0";
+          ctx.strokeStyle = "#d47263";
+          ctx.lineWidth = 0.1 * ppcm;
+          ctx.beginPath();
+          ctx.arc(
+            xCon(this.x) * ppcm,
+            yCon(this.y) * ppcm,
+            this.radius * ppcm,
+            0,
+            2 * Math.PI
+          );
+          ctx.fill();
+          ctx.stroke();
+
+          // text
+          ctx.fillStyle = "#d47263";
+          ctx.font = 1 * ppcm + "px mitr";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("e", xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+        }
+
+        setEvent() {
+          canvas.addEventListener("pointerdown", (evt) => {
+            this.draw();
+            if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
+              this.isDragged = true;
+              let pointerX = convToCanvasX(evt.x);
+              let pointerY = convToCanvasY(evt.y);
+              let delX = 0;
+              let delY = 0;
+              canvas.addEventListener("pointermove", (evt) => {
+                if (this.isDragged == false) {
+                  return;
+                }
+
+                delX = convToCanvasX(evt.x) - pointerX;
+                delY = convToCanvasY(evt.y) - pointerY;
+
+                this.x = this.x - delX / ppcm;
+                this.y = this.y - delY / ppcm;
+
+                pointerX = convToCanvasX(evt.x);
+                pointerY = convToCanvasY(evt.y);
+              });
+
+              canvas.addEventListener(
+                "pointerup",
+                () => {
+                  this.isDragged = false;
+                },
+                { once: true }
+              );
+            }
+          });
+        }
+      }
+
+      // class instanciation
+      const electron = new Electron(0, 0);
+      electron.setEvent();
 
       // animation loop
       function animFrame() {
@@ -146,264 +164,151 @@
         // clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        drawInWave(); // incoming wave
-        drawBottomScreen();
-        drawOutWave(); // outgoing wave
-        drawSlit();
-        drawTopScreen();
+        // draw functions
+        drawMetalSurface();
+        drawWorkFunctionBand();
+        electron.draw();
       }
 
-      function drawSlit() {
-        ctx.strokeStyle = "#7f7f7f";
-        ctx.lineWidth = 0.2 * ppcm;
+      function drawMetalSurface() {
+        ctx.fillStyle = "#DADBDD";
         ctx.beginPath();
-        ctx.moveTo(xCon(-phyWidth / 2) * ppcm, yCon(slitYPos) * ppcm);
+        ctx.rect(xCon(0) * ppcm, yCon(5) * ppcm, 1.5 * ppcm, 10 * ppcm);
+        ctx.fill();
+      }
+
+      function drawWorkFunctionBand() {
+        const gradient = ctx.createLinearGradient(
+          xCon(0) * ppcm,
+          yCon(5) * ppcm,
+          xCon(workFunction) * ppcm,
+          yCon(5) * ppcm
+        );
+        gradient.addColorStop(0, "#aec7e855");
+        gradient.addColorStop(1, "#aec7e800");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.rect(
+          xCon(workFunction) * ppcm,
+          yCon(5) * ppcm,
+          workFunction * ppcm,
+          10 * ppcm
+        );
+        ctx.fill();
+
+        drawEnergyGap(0, -3.5, "#aec7e8", 0, workFunction);
+      }
+
+      function drawEnergyGap(xStart, yStart, color, angle, length) {
+        let arrowSize = 0.5;
+        if (length < arrowSize) {
+          arrowSize = length;
+        }
+
+        // line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.1 * ppcm;
+        ctx.beginPath();
+        ctx.moveTo(xCon(xStart) * ppcm, yCon(yStart) * ppcm);
         ctx.lineTo(
-          xCon(0 - slitD / 2 - slitA / 2) * ppcm,
-          yCon(slitYPos) * ppcm
+          xCon(xStart + (length - arrowSize) * Math.cos(angle)) * ppcm,
+          yCon(yStart + (length - arrowSize) * Math.sin(angle)) * ppcm
         );
-        ctx.moveTo(
-          xCon(0 - slitD / 2 + slitA / 2) * ppcm,
-          yCon(slitYPos) * ppcm
-        );
-        ctx.lineTo(
-          xCon(0 + slitD / 2 - slitA / 2) * ppcm,
-          yCon(slitYPos) * ppcm
-        );
-        ctx.moveTo(
-          xCon(0 + slitD / 2 + slitA / 2) * ppcm,
-          yCon(slitYPos) * ppcm
-        );
-        ctx.lineTo(xCon(phyWidth / 2) * ppcm, yCon(slitYPos) * ppcm);
         ctx.stroke();
-      }
 
-      function drawInWave() {
-        // calculate how many wave
-        const nWave = Math.ceil(slitYPos / lambda);
-
-        ctx.strokeStyle = frequencyToColor(freq) + "55";
-        ctx.lineWidth = 0.04 * ppcm;
-
-        const travelDistance = velocity * elapseTime;
-        for (let i = 0; i < nWave; i++) {
-          let yPos = (i + 1) * lambda + travelDistance;
-          yPos = yPos % (lambda * nWave);
-          if (yPos > slitYPos) {
-            continue;
-          }
-          ctx.beginPath();
-          ctx.moveTo(xCon(-phyWidth / 2) * ppcm, yCon(yPos) * ppcm);
-          ctx.lineTo(xCon(phyWidth / 2) * ppcm, yCon(yPos) * ppcm);
-          ctx.stroke();
-        }
-      }
-
-      function drawOutWave() {
-        // calculate how many wave
-        const nWave = Math.ceil((1.5 * (phyHeight - slitYPos)) / lambda);
-
-        ctx.strokeStyle = frequencyToColor(freq) + "55";
-        ctx.lineWidth = 0.04 * ppcm;
-
-        const travelDistance = velocity * elapseTime;
-        for (let i = 0; i < nWave; i++) {
-          let radius = (i + 1) * lambda + travelDistance;
-          radius = radius % (lambda * nWave);
-          if (radius > 1.5 * (phyHeight - slitYPos)) {
-            continue;
-          }
-          // wave 1
-          ctx.beginPath();
-          ctx.arc(
-            xCon(0 - slitD / 2) * ppcm,
-            yCon(slitYPos) * ppcm,
-            radius * ppcm,
-            Math.PI,
-            0
-          );
-          ctx.stroke();
-          // wave 2
-          ctx.beginPath();
-          ctx.arc(
-            xCon(0 + slitD / 2) * ppcm,
-            yCon(slitYPos) * ppcm,
-            radius * ppcm,
-            Math.PI,
-            0
-          );
-          ctx.stroke();
-        }
-      }
-
-      function drawTopScreen() {
-        // draw empty area
-        ctx.fillStyle = "#F7F7F7";
+        // arrow head
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.rect(
-          0,
-          0,
-          phyWidth * ppcm,
-          (phyHeight - (slitYPos + Number(screenDistance))) * ppcm
+        ctx.moveTo(
+          xCon(xStart + length * Math.cos(angle)) * ppcm,
+          yCon(yStart + length * Math.sin(angle)) * ppcm
+        );
+        ctx.lineTo(
+          xCon(
+            xStart +
+              (length - arrowSize) * Math.cos(angle) +
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              (length - arrowSize) * Math.sin(angle) +
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.lineTo(
+          xCon(
+            xStart +
+              (length - arrowSize) * Math.cos(angle) -
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              (length - arrowSize) * Math.sin(angle) -
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
         );
         ctx.fill();
 
-        // draw fringes BG
-        ctx.fillStyle = "black";
+        // line end
         ctx.beginPath();
-        ctx.rect(
-          0,
-          Math.ceil(yCon(slitYPos + Number(screenDistance) + 0.7) * ppcm),
-          phyWidth * ppcm,
-          Math.ceil(0.72 * ppcm)
+        ctx.moveTo(
+          xCon(
+            xStart +
+              length * Math.cos(angle) +
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              length * Math.sin(angle) +
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
         );
-        ctx.fill();
+        ctx.lineTo(
+          xCon(
+            xStart +
+              length * Math.cos(angle) -
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              length * Math.sin(angle) -
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.stroke();
 
-        // draw fringes
-        const resolution = canvas.width;
-        for (let i = 0; i < resolution; i++) {
-          // get x coordinate
-          const x = -phyWidth / 2 + (i * phyWidth) / resolution;
-
-          // find intensity
-          const path1 = Math.sqrt((x + slitD / 2) ** 2 + screenDistance ** 2);
-          const path2 = Math.sqrt((x - slitD / 2) ** 2 + screenDistance ** 2);
-          const pathDiff = Math.abs(path1 - path2);
-          const phaseDiff = 2 * Math.PI * (pathDiff / lambda);
-          const intensity = Math.cos(phaseDiff / 2) ** 2;
-          const alphaHex = Math.round(intensity * 255).toString(16);
-
-          ctx.fillStyle = frequencyToColor(freq) + alphaHex;
-          ctx.beginPath();
-          ctx.rect(
-            xCon(x) * ppcm,
-            Math.ceil(yCon(slitYPos + Number(screenDistance) + 0.7) * ppcm),
-            1,
-            Math.ceil(0.72 * ppcm)
-          );
-          ctx.fill();
-        }
+        // text
+        ctx.font = 0.4 * ppcm + "px mitr";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.save();
+        ctx.translate(
+          xCon(
+            xStart +
+              0.4 * length * Math.cos(angle) +
+              0.5 * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              0.4 * length * Math.sin(angle) +
+              0.5 * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.rotate(angle);
+        ctx.fillText(length.toFixed(1) + " eV", 0, 0);
+        ctx.restore();
       }
 
-      function drawBottomScreen() {
-        // draw fringes BG
-        ctx.fillStyle = "black";
-        ctx.beginPath();
-        ctx.rect(
-          0,
-          yCon(slitYPos + Number(screenDistance)) * ppcm,
-          phyWidth * ppcm,
-          0.7 * ppcm
-        );
-        ctx.fill();
-
-        // draw fringes
-        const resolution = canvas.width;
-        for (let i = 0; i < resolution; i++) {
-          // get x coordinate
-          const x = -phyWidth / 2 + (i * phyWidth) / resolution;
-
-          // find intensity
-          const path1 = Math.sqrt((x + slitD / 2) ** 2 + screenDistance ** 2);
-          const path2 = Math.sqrt((x - slitD / 2) ** 2 + screenDistance ** 2);
-          const pathDiff = Math.abs(path1 - path2);
-          const phaseDiff = 2 * Math.PI * (pathDiff / lambda);
-          const intensity = Math.cos(phaseDiff / 2) ** 2;
-          const alphaHex = Math.round(intensity * 255).toString(16);
-
-          ctx.fillStyle = frequencyToColor(freq) + alphaHex;
-          ctx.beginPath();
-          ctx.rect(
-            xCon(x) * ppcm,
-            yCon(slitYPos + Number(screenDistance)) * ppcm,
-            1,
-            0.7 * ppcm
-          );
-          ctx.fill();
-        }
+      // convert window x coordinate to canvas x coordinate
+      function convToCanvasX(winX) {
+        let rect = canvas.getBoundingClientRect();
+        return winX - rect.left - window.scrollX;
       }
 
-      function frequencyToColor(frequency) {
-        // The visible spectrum ranges from about 430 THz (red) to 790 THz (violet).
-        // This is a simplified model for converting frequency to an RGB color.
-        const THz =
-          ((frequency - document.getElementById("freq").min) /
-            (document.getElementById("freq").max -
-              document.getElementById("freq").min)) *
-            (790 - 430) +
-          430;
-
-        let r = 0,
-          g = 0,
-          b = 0;
-        let name = "Invisible";
-
-        // The mapping is based on wavelength, so we first convert frequency to wavelength.
-        // c = 3e8 m/s (speed of light)
-        // frequency is in THz (10^12 Hz)
-        // wavelength (nm) = (3e8 m/s) / (frequency * 1e12 Hz) * 1e9 nm/m
-        // wavelength (nm) = 300,000 / frequency (in THz)
-        const wavelength = 300000 / THz;
-
-        if (wavelength >= 370 && wavelength < 440) {
-          // Violet
-          r = -(wavelength - 440) / (440 - 370);
-          g = 0;
-          b = 1;
-          name = "Violet";
-        } else if (wavelength >= 440 && wavelength < 490) {
-          // Blue
-          r = 0;
-          g = (wavelength - 440) / (490 - 440);
-          b = 1;
-          name = "Blue";
-        } else if (wavelength >= 490 && wavelength < 510) {
-          // Cyan
-          r = 0;
-          g = 1;
-          b = -(wavelength - 510) / (510 - 490);
-          name = "Cyan";
-        } else if (wavelength >= 510 && wavelength < 580) {
-          // Green
-          r = (wavelength - 510) / (580 - 510);
-          g = 1;
-          b = 0;
-          name = "Green";
-        } else if (wavelength >= 580 && wavelength < 620) {
-          // Yellow
-          r = 1;
-          g = -(wavelength - 620) / (620 - 580);
-          b = 0;
-          name = "Yellow";
-        } else if (wavelength >= 620 && wavelength < 750) {
-          // Red
-          r = 1;
-          g = 0;
-          b = 0;
-          name = "Red";
-        }
-
-        // For frequencies outside the visible spectrum (infrared, ultraviolet)
-        if (wavelength < 370 || wavelength > 750) {
-          return { hex: "#000000", name: "Invisible (UV/Infrared)" };
-        }
-
-        // Intensity falls off near the edges of the spectrum
-        let factor = 1.0;
-        if (wavelength >= 370 && wavelength < 420) {
-          factor = 0.3 + (0.7 * (wavelength - 370)) / (420 - 370);
-        } else if (wavelength >= 700 && wavelength < 750) {
-          factor = 0.3 + (0.7 * (750 - wavelength)) / (750 - 700);
-        }
-
-        const finalR = Math.round(255 * r * factor);
-        const finalG = Math.round(255 * g * factor);
-        const finalB = Math.round(255 * b * factor);
-
-        const toHex = (c) => ("0" + c.toString(16)).slice(-2);
-        const hex = `#${toHex(finalR)}${toHex(finalG)}${toHex(finalB)}`;
-
-        return hex;
+      // convert window y coordinate to canvas y coordinate
+      function convToCanvasY(winY) {
+        let rect = canvas.getBoundingClientRect();
+        return winY - rect.top - window.scrollY;
       }
     </script>
   </body>
