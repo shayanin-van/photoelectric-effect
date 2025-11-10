@@ -148,6 +148,10 @@
 
           // draw
           this.draw();
+
+          if (this.x == 0) {
+            drawCursor();
+          }
         }
       }
 
@@ -200,6 +204,11 @@
           );
         }
       }
+
+      // cursor image
+      const image = new Image(96, 54); // Using optional size for image
+      image.onload = drawCursor; // Draw when image has loaded
+      image.src = "../assets/cursor.png";
 
       // animation loop
       function animFrame() {
@@ -359,6 +368,16 @@
         ctx.rotate(angle);
         ctx.fillText(length.toFixed(1) + " eV", 0, 0);
         ctx.restore();
+      }
+
+      function drawCursor() {
+        ctx.drawImage(
+          image,
+          xCon(0.25) * ppcm,
+          yCon(0) * ppcm,
+          2 * 0.96 * ppcm,
+          2 * 0.54 * ppcm
+        );
       }
 
       // convert window x coordinate to canvas x coordinate
