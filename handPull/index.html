@@ -47,7 +47,7 @@
       let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
 
       // physics
-      const workFunction = 2.3; // approx for sodium
+      const workFunction = 2.6;
 
       // time
       const startTime = Date.now() / 1000;
@@ -77,8 +77,24 @@
           this.y = y;
           this.radius = 0.5;
 
+          this.v = 0;
+          this.m = 0.01; // electron mass
+          this.F = -1; // force acting on electron
+
           this.isHovered = false;
           this.isDragged = false;
+          this.isReleased = false;
+        }
+
+        createPath() {
+          ctx.beginPath();
+          ctx.arc(
+            xCon(this.x) * ppcm,
+            yCon(this.y) * ppcm,
+            this.radius * ppcm,
+            0,
+            2 * Math.PI
+          );
         }
 
         draw() {
@@ -88,14 +104,7 @@
           }
           ctx.strokeStyle = "#d47263";
           ctx.lineWidth = 0.1 * ppcm;
-          ctx.beginPath();
-          ctx.arc(
-            xCon(this.x) * ppcm,
-            yCon(this.y) * ppcm,
-            this.radius * ppcm,
-            0,
-            2 * Math.PI
-          );
+          this.createPath();
           ctx.fill();
           ctx.stroke();
 
@@ -105,52 +114,52 @@
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText("e", xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+
+          // energy
+          if (this.isReleased == false) {
+            drawEnergyGap(0, 0, "#8fcf88", 0, this.x);
+          }
         }
 
-        // setEvent() {
-        //   canvas.addEventListener("pointerdown", (evt) => {
-        //     this.draw();
-        //     if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
-        //       this.isDragged = true;
-        //       let pointerX = convToCanvasX(evt.x);
-        //       let pointerY = convToCanvasY(evt.y);
-        //       let delX = 0;
-        //       let delY = 0;
-        //       canvas.addEventListener("pointermove", (evt) => {
-        //         if (this.isDragged == false) {
-        //           return;
-        //         }
+        update() {
+          // emitting
+          if (this.x > workFunction) {
+            this.isReleased = true;
+            this.isDragged = false;
+            this.v = 4;
+            this.x = this.x + this.v * deltaTime;
+            if (this.x > 11) {
+              this.x = 0;
+              this.v = 0;
+              this.isReleased = false;
+            }
+          }
 
-        //         delX = convToCanvasX(evt.x) - pointerX;
-        //         delY = convToCanvasY(evt.y) - pointerY;
+          if (this.isDragged == false && this.isReleased == false) {
+            // semi-implicit euler update
+            this.v = this.v + (this.F / this.m) * deltaTime;
+            this.x = this.x + this.v * deltaTime;
 
-        //         this.x = this.x - delX / ppcm;
-        //         this.y = this.y - delY / ppcm;
+            // constraint
+            if (this.x < 0) {
+              this.x = 0;
+            }
+          }
 
-        //         pointerX = convToCanvasX(evt.x);
-        //         pointerY = convToCanvasY(evt.y);
-        //       });
-
-        //       canvas.addEventListener(
-        //         "pointerup",
-        //         () => {
-        //           this.isDragged = false;
-        //         },
-        //         { once: true }
-        //       );
-        //     }
-        //   });
-        // }
+          // draw
+          this.draw();
+        }
       }
 
       // class instanciation
       const electron = new Electron(0, 0);
 
-      // electron event
+      // electron drag event
       let pointerX = undefined;
       canvas.addEventListener("pointermove", handleMove);
       canvas.addEventListener("pointerdown", handleDown);
       function handleMove(evt) {
+        electron.createPath();
         if (
           ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y)) ||
           electron.isDragged
@@ -164,11 +173,18 @@
           if (pointerX != undefined) {
             delX = convToCanvasX(evt.x) - pointerX;
             electron.x = electron.x - delX / ppcm;
+            electron.v = -delX / (deltaTime * ppcm);
           }
           pointerX = convToCanvasX(evt.x);
+          // drag constraint
+          if (electron.x < 0) {
+            electron.x = 0;
+            pointerX = 8.5 * ppcm;
+          }
         }
       }
       function handleDown(evt) {
+        electron.createPath();
         if (ctx.isPointInPath(convToCanvasX(evt.x), convToCanvasY(evt.y))) {
           electron.isHovered = true;
           electron.isDragged = true;
@@ -178,6 +194,7 @@
             () => {
               electron.isHovered = false;
               electron.isDragged = false;
+              electron.v = 0;
             },
             { once: true }
           );
@@ -209,7 +226,7 @@
         // draw functions
         drawMetalSurface();
         drawWorkFunctionBand();
-        electron.draw();
+        electron.update();
       }
 
       function drawMetalSurface() {
@@ -227,7 +244,7 @@
           yCon(5) * ppcm
         );
         gradient.addColorStop(0, "#aec7e855");
-        gradient.addColorStop(1, "#aec7e800");
+        gradient.addColorStop(1, "#aec7e811");
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.rect(
@@ -320,6 +337,9 @@
         ctx.stroke();
 
         // text
+        if (length < 1) {
+          return;
+        }
         ctx.font = 0.4 * ppcm + "px mitr";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
