@@ -173,19 +173,17 @@
         }
 
         drawFlashLight() {
-          if (image) {
-            ctx.save();
-            ctx.translate(xCon(this.x) * ppcm, yCon(this.y) * ppcm);
-            ctx.rotate(this.rotation);
-            ctx.drawImage(
-              image,
-              0 - ((5 / this.imageScale) * ppcm) / 2,
-              0 - ((1.58 / this.imageScale) * ppcm) / 2,
-              (5 / this.imageScale) * ppcm,
-              (1.58 / this.imageScale) * ppcm
-            );
-            ctx.restore();
-          }
+          ctx.save();
+          ctx.translate(xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+          ctx.rotate(this.rotation);
+          ctx.drawImage(
+            image,
+            0 - ((5 / this.imageScale) * ppcm) / 2,
+            0 - ((1.58 / this.imageScale) * ppcm) / 2,
+            (5 / this.imageScale) * ppcm,
+            (1.58 / this.imageScale) * ppcm
+          );
+          ctx.restore();
         }
 
         drawWave() {
@@ -238,6 +236,7 @@
 
       // flashlight image
       const image = new Image();
+      image.onload = light.drawFlashLight;
       image.src = "../assets/flashLight.png";
 
       // animation loop
