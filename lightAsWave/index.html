@@ -46,10 +46,10 @@
         type="range"
         id="amplitude"
         name="amplitude"
-        min="0.15"
+        min="0.14"
         max="0.3"
-        value="0.2"
-        step="0.05"
+        value="0.22"
+        step="0.04"
       />
     </div>
 
@@ -173,17 +173,19 @@
         }
 
         drawFlashLight() {
-          ctx.save();
-          ctx.translate(xCon(this.x) * ppcm, yCon(this.y) * ppcm);
-          ctx.rotate(this.rotation);
-          ctx.drawImage(
-            image,
-            0 - ((5 / this.imageScale) * ppcm) / 2,
-            0 - ((1.58 / this.imageScale) * ppcm) / 2,
-            (5 / this.imageScale) * ppcm,
-            (1.58 / this.imageScale) * ppcm
-          );
-          ctx.restore();
+          if (image) {
+            ctx.save();
+            ctx.translate(xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+            ctx.rotate(this.rotation);
+            ctx.drawImage(
+              image,
+              0 - ((5 / this.imageScale) * ppcm) / 2,
+              0 - ((1.58 / this.imageScale) * ppcm) / 2,
+              (5 / this.imageScale) * ppcm,
+              (1.58 / this.imageScale) * ppcm
+            );
+            ctx.restore();
+          }
         }
 
         drawWave() {
