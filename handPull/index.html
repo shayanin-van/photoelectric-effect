@@ -228,6 +228,10 @@
         elapseTime = currentTime - startTime;
         deltaTime = currentTime - prevTime;
         prevTime = currentTime;
+        // set a hard limit for dt in case of stuttering or tab switching
+        if (deltaTime > 0.02) {
+          deltaTime = 1 / 60;
+        }
 
         // clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
