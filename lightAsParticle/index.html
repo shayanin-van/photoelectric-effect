@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Mitr"
+    />
+    <title>Photoelectric Effect</title>
+    <style>
+      body {
+        font-family: "Mitr", sans-serif;
+        color: rgb(114, 114, 114);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+      }
+      #myCanvas {
+        border: 0px;
+        touch-action: none;
+        background-color: #ffffff;
+        width: 90%;
+        max-width: 360px;
+        aspect-ratio: 1;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="myCanvas"></canvas>
+    <div
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-width: 260px;
+        text-align: center;
+      "
+    >
+      <label for="hf">พลังงานต่อโฟตอน</label>
+      <input
+        type="range"
+        id="hf"
+        name="hf"
+        min="1.6"
+        max="3.2"
+        value="2.4"
+        step="0.4"
+      />
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+    <script>
+      // get the canvas element
+      const canvas = document.getElementById("myCanvas");
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+
+      // get the 2D rendering context
+      const ctx = canvas.getContext("2d");
+
+      // sizing
+      const phyWidth = 10; // in cm.
+      const phyHeight = 10; // in cm.
+      let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
+
+      // physics
+      const workFunction = 2.7;
+      let hf = document.getElementById("hf").value;
+      document.getElementById("hf").addEventListener("input", () => {
+        hf = document.getElementById("hf").value;
+      });
+
+      // time
+      const startTime = Date.now() / 1000;
+      let prevTime = startTime;
+      let currentTime;
+      let deltaTime;
+
+      // coordinate converting function from physical to canvas space
+      function xCon(x) {
+        return -x + 8.5;
+      }
+      function yCon(y) {
+        return -y + 5;
+      }
+
+      // resize event
+      window.addEventListener("resize", () => {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
+      });
+
+      // electron class
+      class Electron {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.radius = 0.5;
+
+          this.v = 0;
+          this.m = 0.01; // electron mass
+          this.F = -1; // force acting on electron
+
+          this.isReleased = false;
+        }
+
+        createPath() {
+          ctx.beginPath();
+          ctx.arc(
+            xCon(this.x) * ppcm,
+            yCon(this.y) * ppcm,
+            this.radius * ppcm,
+            0,
+            2 * Math.PI
+          );
+        }
+
+        draw() {
+          ctx.fillStyle = "#f5b9b0";
+          ctx.strokeStyle = "#d47263";
+          ctx.lineWidth = 0.1 * ppcm;
+          this.createPath();
+          ctx.fill();
+          ctx.stroke();
+
+          // text
+          ctx.fillStyle = "#d47263";
+          ctx.font = 1 * ppcm + "px mitr";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("e", xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+
+          // energy
+          if (this.isReleased == false) {
+            drawEnergyGap(0, 0, "#8fcf88", 0, this.x);
+          }
+        }
+
+        update() {
+          if (this.isReleased == false) {
+            // semi-implicit euler update
+            this.v = this.v + (this.F / this.m) * deltaTime;
+            this.x = this.x + this.v * deltaTime;
+          }
+
+          // constraint
+          if (this.x < 0) {
+            this.x = 0;
+          }
+
+          if (this.x > workFunction) {
+            this.isReleased = true;
+            this.x = this.x + this.v * deltaTime;
+          }
+
+          if (this.x > 10) {
+            this.x = 0;
+            this.v = 0;
+            this.isReleased = false;
+            firePhoton();
+          }
+
+          // draw
+          this.draw();
+        }
+      }
+
+      // light class
+      class Light {
+        constructor() {
+          this.x = 6;
+          this.y = 3.4;
+          this.rotation = Math.atan2(this.y, this.x);
+
+          this.photonX = this.x;
+          this.photonY = this.y;
+          this.photonOpacity = 0;
+          this.photonRadius = 0.5;
+          this.hfAtFire = hf;
+
+          this.imageScale = 1.4;
+          this.imageIsLoad = false;
+        }
+
+        drawFlashLight() {
+          if (this.imageIsLoad) {
+            ctx.save();
+            ctx.translate(xCon(this.x) * ppcm, yCon(this.y) * ppcm);
+            ctx.rotate(this.rotation);
+            ctx.drawImage(
+              image,
+              0 - ((5 / this.imageScale) * ppcm) / 2,
+              0 - ((1.58 / this.imageScale) * ppcm) / 2,
+              (5 / this.imageScale) * ppcm,
+              (1.58 / this.imageScale) * ppcm
+            );
+            ctx.restore();
+          }
+        }
+
+        drawPhoton() {
+          ctx.fillStyle =
+            eVToColor(this.hfAtFire) + map01ToHex(this.photonOpacity - 0.5);
+          ctx.strokeStyle = "#222222" + map01ToHex(this.photonOpacity);
+          ctx.lineWidth = 0.05 * ppcm;
+          ctx.beginPath();
+          ctx.arc(
+            xCon(this.photonX) * ppcm,
+            yCon(this.photonY) * ppcm,
+            this.photonRadius * ppcm,
+            0,
+            2 * Math.PI
+          );
+          ctx.fill();
+          ctx.stroke();
+
+          // text
+          ctx.fillStyle = "#222222" + map01ToHex(this.photonOpacity);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = 0.5 * ppcm + "px mitr";
+          ctx.fillText(
+            this.hfAtFire,
+            xCon(this.photonX) * ppcm,
+            yCon(this.photonY + 0.1) * ppcm
+          );
+          ctx.font = 0.3 * ppcm + "px mitr";
+          ctx.fillText(
+            "eV",
+            xCon(this.photonX) * ppcm,
+            yCon(this.photonY - 0.25) * ppcm
+          );
+        }
+
+        update() {
+          this.drawPhoton();
+          this.drawFlashLight();
+        }
+      }
+
+      // class instanciation
+      const electron = new Electron(0, 0);
+      const light = new Light();
+
+      // flashlight image
+      const image = new Image();
+      image.onload = () => {
+        light.imageIsLoad = true;
+      };
+      image.src = "../assets/flashlight.png";
+
+      // animation loop
+      function animFrame() {
+        requestAnimationFrame(animFrame);
+        onEachStep();
+      }
+
+      function init() {
+        animFrame();
+
+        firePhoton();
+      }
+
+      window.onload = init;
+
+      function onEachStep() {
+        // time
+        currentTime = Date.now() / 1000;
+        elapseTime = currentTime - startTime;
+        deltaTime = currentTime - prevTime;
+        prevTime = currentTime;
+        // set a hard limit for dt in case of stuttering or tab switching
+        if (deltaTime > 0.02) {
+          deltaTime = 1 / 60;
+        }
+
+        // clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // draw functions
+        drawMetalSurface();
+        drawWorkFunctionBand();
+        light.update();
+        electron.update();
+      }
+
+      function drawMetalSurface() {
+        ctx.fillStyle = "#DADBDD";
+        ctx.beginPath();
+        ctx.rect(xCon(0) * ppcm, yCon(5) * ppcm, 1.5 * ppcm, 10 * ppcm);
+        ctx.fill();
+      }
+
+      function drawWorkFunctionBand() {
+        const gradient = ctx.createLinearGradient(
+          xCon(0) * ppcm,
+          yCon(5) * ppcm,
+          xCon(workFunction) * ppcm,
+          yCon(5) * ppcm
+        );
+        gradient.addColorStop(0, "#aec7e855");
+        gradient.addColorStop(1, "#aec7e811");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.rect(
+          xCon(workFunction) * ppcm,
+          yCon(5) * ppcm,
+          workFunction * ppcm,
+          10 * ppcm
+        );
+        ctx.fill();
+
+        drawEnergyGap(0, -3.5, "#aec7e8", 0, workFunction);
+      }
+
+      function drawEnergyGap(xStart, yStart, color, angle, length) {
+        let arrowSize = 0.5;
+        if (length < arrowSize) {
+          arrowSize = length;
+        }
+
+        // line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.1 * ppcm;
+        ctx.beginPath();
+        ctx.moveTo(xCon(xStart) * ppcm, yCon(yStart) * ppcm);
+        ctx.lineTo(
+          xCon(xStart + (length - arrowSize) * Math.cos(angle)) * ppcm,
+          yCon(yStart + (length - arrowSize) * Math.sin(angle)) * ppcm
+        );
+        ctx.stroke();
+
+        // arrow head
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(
+          xCon(xStart + length * Math.cos(angle)) * ppcm,
+          yCon(yStart + length * Math.sin(angle)) * ppcm
+        );
+        ctx.lineTo(
+          xCon(
+            xStart +
+              (length - arrowSize) * Math.cos(angle) +
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              (length - arrowSize) * Math.sin(angle) +
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.lineTo(
+          xCon(
+            xStart +
+              (length - arrowSize) * Math.cos(angle) -
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              (length - arrowSize) * Math.sin(angle) -
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.fill();
+
+        // line end
+        ctx.beginPath();
+        ctx.moveTo(
+          xCon(
+            xStart +
+              length * Math.cos(angle) +
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              length * Math.sin(angle) +
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.lineTo(
+          xCon(
+            xStart +
+              length * Math.cos(angle) -
+              0.5 * arrowSize * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              length * Math.sin(angle) -
+              0.5 * arrowSize * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.stroke();
+
+        // text
+        if (length < 1) {
+          return;
+        }
+        ctx.font = 0.4 * ppcm + "px mitr";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.save();
+        ctx.translate(
+          xCon(
+            xStart +
+              0.4 * length * Math.cos(angle) +
+              0.5 * Math.cos(angle + Math.PI / 2)
+          ) * ppcm,
+          yCon(
+            yStart +
+              0.4 * length * Math.sin(angle) +
+              0.5 * Math.sin(angle + Math.PI / 2)
+          ) * ppcm
+        );
+        ctx.rotate(angle);
+        ctx.fillText(length.toFixed(1) + " eV", 0, 0);
+        ctx.restore();
+      }
+
+      function map01ToHex(value) {
+        // Ensure the value is within the 0-1 range
+        if (value < 0) value = 0;
+        if (value > 1) value = 1;
+
+        // Scale to 0-255 and round
+        const scaledValue = Math.round(value * 255);
+
+        // Convert to hexadecimal string
+        let hex = scaledValue.toString(16);
+
+        // Pad with a leading zero if necessary
+        if (hex.length === 1) {
+          hex = "0" + hex;
+        }
+
+        return hex;
+      }
+
+      function eVToColor(eV) {
+        const THz =
+          ((eV - document.getElementById("hf").min) /
+            (document.getElementById("hf").max -
+              document.getElementById("hf").min)) *
+            (790 - 430) +
+          430;
+
+        let r = 0,
+          g = 0,
+          b = 0;
+        let name = "Invisible";
+
+        // The mapping is based on wavelength, so we first convert frequency to wavelength.
+        // c = 3e8 m/s (speed of light)
+        // frequency is in THz (10^12 Hz)
+        // wavelength (nm) = (3e8 m/s) / (frequency * 1e12 Hz) * 1e9 nm/m
+        // wavelength (nm) = 300,000 / frequency (in THz)
+        const wavelength = 300000 / THz;
+
+        if (wavelength >= 370 && wavelength < 440) {
+          // Violet
+          r = -(wavelength - 440) / (440 - 370);
+          g = 0;
+          b = 1;
+          name = "Violet";
+        } else if (wavelength >= 440 && wavelength < 490) {
+          // Blue
+          r = 0;
+          g = (wavelength - 440) / (490 - 440);
+          b = 1;
+          name = "Blue";
+        } else if (wavelength >= 490 && wavelength < 510) {
+          // Cyan
+          r = 0;
+          g = 1;
+          b = -(wavelength - 510) / (510 - 490);
+          name = "Cyan";
+        } else if (wavelength >= 510 && wavelength < 580) {
+          // Green
+          r = (wavelength - 510) / (580 - 510);
+          g = 1;
+          b = 0;
+          name = "Green";
+        } else if (wavelength >= 580 && wavelength < 620) {
+          // Yellow
+          r = 1;
+          g = -(wavelength - 620) / (620 - 580);
+          b = 0;
+          name = "Yellow";
+        } else if (wavelength >= 620 && wavelength < 750) {
+          // Red
+          r = 1;
+          g = 0;
+          b = 0;
+          name = "Red";
+        }
+
+        // For frequencies outside the visible spectrum (infrared, ultraviolet)
+        if (wavelength < 370 || wavelength > 750) {
+          return { hex: "#000000", name: "Invisible (UV/Infrared)" };
+        }
+
+        // Intensity falls off near the edges of the spectrum
+        let factor = 1.0;
+        if (wavelength >= 370 && wavelength < 420) {
+          factor = 0.3 + (0.7 * (wavelength - 370)) / (420 - 370);
+        } else if (wavelength >= 700 && wavelength < 750) {
+          factor = 0.3 + (0.7 * (750 - wavelength)) / (750 - 700);
+        }
+
+        const finalR = Math.round(255 * r * factor);
+        const finalG = Math.round(255 * g * factor);
+        const finalB = Math.round(255 * b * factor);
+
+        const toHex = (c) => ("0" + c.toString(16)).slice(-2);
+        const hex = `#${toHex(finalR)}${toHex(finalG)}${toHex(finalB)}`;
+
+        return hex;
+      }
+
+      function firePhoton() {
+        light.hfAtFire = hf;
+        let electronInitV = Math.sqrt(
+          (2 * -electron.F * light.hfAtFire) / electron.m
+        );
+        light.photonX = light.x;
+        light.photonY = light.y;
+        gsap.to(light, { photonX: 0, photonY: 0, duration: 2, ease: "none" });
+        gsap.to(light, { photonOpacity: 1, duration: 0.1, delay: 0.2 });
+        gsap.set(light, { photonOpacity: 0, delay: 2 });
+        gsap.set(electron, { v: electronInitV, delay: 2 });
+        if (light.hfAtFire < workFunction) {
+          gsap.set(light, { photonOpacity: 1, delay: 2.4 });
+          gsap.to(light, {
+            photonX: light.x,
+            photonY: -light.y,
+            duration: 2,
+            ease: "none",
+            delay: 2.4,
+          });
+          gsap.to(light, { photonOpacity: 0, duration: 0.1, delay: 4.3 });
+          setTimeout(() => {
+            light.photonX = light.x;
+            light.photonY = light.y;
+            firePhoton();
+          }, 4420);
+        }
+      }
+    </script>
+  </body>
+</html>
