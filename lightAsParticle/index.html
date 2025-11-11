@@ -264,6 +264,7 @@
       function init() {
         animFrame();
 
+        gsap.ticker.lagSmoothing(false);
         firePhoton();
       }
 
@@ -543,11 +544,12 @@
             delay: 2.4,
           });
           gsap.to(light, { photonOpacity: 0, duration: 0.1, delay: 4.3 });
-          setTimeout(() => {
-            light.photonX = light.x;
-            light.photonY = light.y;
-            firePhoton();
-          }, 4420);
+          gsap.delayedCall(4.42, firePhoton);
+          // setTimeout(() => {
+          //   light.photonX = light.x;
+          //   light.photonY = light.y;
+          //   firePhoton();
+          // }, 4420);
         }
       }
     </script>
