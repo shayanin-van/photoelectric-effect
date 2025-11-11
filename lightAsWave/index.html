@@ -68,7 +68,7 @@
       let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
 
       // physics
-      const workFunction = 3.6;
+      const workFunction = 3.8;
       let amplitude = document.getElementById("amplitude").value;
       document.getElementById("amplitude").addEventListener("input", () => {
         amplitude = document.getElementById("amplitude").value;
@@ -145,7 +145,10 @@
         }
 
         update() {
-          this.v = 8 * amplitude;
+          if (this.isReleased == false) {
+            this.v = 6 * amplitude;
+          }
+
           this.x = this.x + this.v * deltaTime;
 
           if (this.x > workFunction) {
