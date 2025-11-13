@@ -68,7 +68,7 @@
       let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
 
       // physics
-      const workFunction = 3.8;
+      const workFunction = 3.0;
       let amplitude = document.getElementById("amplitude").value;
       document.getElementById("amplitude").addEventListener("input", () => {
         amplitude = document.getElementById("amplitude").value;
@@ -294,8 +294,8 @@
           xCon(workFunction) * ppcm,
           yCon(5) * ppcm
         );
-        gradient.addColorStop(0, "#aec7e855");
-        gradient.addColorStop(1, "#aec7e811");
+        gradient.addColorStop(0, "#aaaaaa44");
+        gradient.addColorStop(1, "#aaaaaa11");
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.rect(

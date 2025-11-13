@@ -47,7 +47,7 @@
       let ppcm = canvas.width / phyWidth; // ppcm = pixel per centimeter
 
       // physics
-      const workFunction = 2.6;
+      const workFunction = 3.0;
 
       // time
       const startTime = Date.now() / 1000;
@@ -256,8 +256,8 @@
           xCon(workFunction) * ppcm,
           yCon(5) * ppcm
         );
-        gradient.addColorStop(0, "#aec7e855");
-        gradient.addColorStop(1, "#aec7e811");
+        gradient.addColorStop(0, "#aaaaaa44");
+        gradient.addColorStop(1, "#aaaaaa11");
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.rect(
